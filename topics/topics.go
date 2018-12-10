@@ -23,7 +23,6 @@
 package topics
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/surgemq/message"
@@ -47,13 +46,6 @@ const (
 )
 
 var (
-	// ErrAuthFailure is returned when the user/pass supplied are invalid
-	ErrAuthFailure = errors.New("auth: Authentication failure")
-
-	// ErrAuthProviderNotFound is returned when the requested provider does not exist.
-	// It probably hasn't been registered yet.
-	ErrAuthProviderNotFound = errors.New("auth: Authentication provider not found")
-
 	providers = make(map[string]TopicsProvider)
 )
 
