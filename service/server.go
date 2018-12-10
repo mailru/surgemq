@@ -26,9 +26,9 @@ import (
 
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/auth"
-	"github.com/surgemq/surgemq/sessions"
-	"github.com/surgemq/surgemq/topics"
+	"github.com/RepentantGopher/surgemq/auth"
+	"github.com/RepentantGopher/surgemq/sessions"
+	"github.com/RepentantGopher/surgemq/topics"
 )
 
 var (
