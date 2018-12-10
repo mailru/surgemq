@@ -188,7 +188,7 @@ func pinger() {
 			pubmsg.SetPayload(b)
 
 			// Publishes to the server
-			s.Publish(pubmsg, nil)
+			s.Publish(pubmsg, nil, nil)
 		}
 
 		p.Stop()

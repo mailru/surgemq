@@ -58,7 +58,7 @@ func NewMemProvider() *memTopics {
 	}
 }
 
-func (this *memTopics) Subscribe(topic []byte, qos byte, sub interface{}) (byte, error) {
+func (this *memTopics) Subscribe(topic []byte, qos byte, sub, profile interface{}) (byte, error) {
 	if !message.ValidQos(qos) {
 		return message.QosFailure, fmt.Errorf("Invalid QoS %d", qos)
 	}
@@ -81,7 +81,7 @@ func (this *memTopics) Subscribe(topic []byte, qos byte, sub interface{}) (byte,
 	return qos, nil
 }
 
-func (this *memTopics) Unsubscribe(topic []byte, sub interface{}) error {
+func (this *memTopics) Unsubscribe(topic []byte, sub, profile interface{}) error {
 	this.smu.Lock()
 	defer this.smu.Unlock()
 
@@ -89,7 +89,7 @@ func (this *memTopics) Unsubscribe(topic []byte, sub interface{}) error {
 }
 
 // Returned values will be invalidated by the next Subscribers call
-func (this *memTopics) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error {
+func (this *memTopics) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte, profile interface{}) error {
 	if !message.ValidQos(qos) {
 		return fmt.Errorf("Invalid QoS %d", qos)
 	}
@@ -103,7 +103,7 @@ func (this *memTopics) Subscribers(topic []byte, qos byte, subs *[]interface{}, 
 	return this.sroot.smatch(topic, qos, subs, qoss)
 }
 
-func (this *memTopics) Retain(msg *message.PublishMessage) error {
+func (this *memTopics) Retain(msg *message.PublishMessage, profile interface{}) error {
 	this.rmu.Lock()
 	defer this.rmu.Unlock()
 
@@ -117,7 +117,7 @@ func (this *memTopics) Retain(msg *message.PublishMessage) error {
 	return this.rroot.rinsert(msg.Topic(), msg)
 }
 
-func (this *memTopics) Retained(topic []byte, msgs *[]*message.PublishMessage) error {
+func (this *memTopics) Retained(topic []byte, msgs *[]*message.PublishMessage, profile interface{}) error {
 	this.rmu.RLock()
 	defer this.rmu.RUnlock()
 

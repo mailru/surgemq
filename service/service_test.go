@@ -168,7 +168,7 @@ func TestServiceSubRetain(t *testing.T) {
 		rmsg.SetPayload([]byte("this is a test"))
 
 		tmgr, _ := topics.NewManager("mem")
-		err := tmgr.Retain(rmsg)
+		err := tmgr.Retain(rmsg, struct{}{})
 		require.NoError(t, err)
 
 		done := make(chan struct{})

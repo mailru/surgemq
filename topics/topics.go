@@ -51,11 +51,11 @@ var (
 
 // TopicsProvider
 type TopicsProvider interface {
-	Subscribe(topic []byte, qos byte, subscriber interface{}) (byte, error)
-	Unsubscribe(topic []byte, subscriber interface{}) error
-	Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error
-	Retain(msg *message.PublishMessage) error
-	Retained(topic []byte, msgs *[]*message.PublishMessage) error
+	Subscribe(topic []byte, qos byte, subscriber, profile interface{}) (byte, error)
+	Unsubscribe(topic []byte, subscriber interface{}, profile interface{}) error
+	Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte, profile interface{}) error
+	Retain(msg *message.PublishMessage, profile interface{}) error
+	Retained(topic []byte, msgs *[]*message.PublishMessage, profile interface{}) error
 	Close() error
 }
 
@@ -88,24 +88,24 @@ func NewManager(providerName string) (*Manager, error) {
 	return &Manager{p: p}, nil
 }
 
-func (this *Manager) Subscribe(topic []byte, qos byte, subscriber interface{}) (byte, error) {
-	return this.p.Subscribe(topic, qos, subscriber)
+func (this *Manager) Subscribe(topic []byte, qos byte, subscriber, profile interface{}) (byte, error) {
+	return this.p.Subscribe(topic, qos, subscriber, profile)
 }
 
-func (this *Manager) Unsubscribe(topic []byte, subscriber interface{}) error {
-	return this.p.Unsubscribe(topic, subscriber)
+func (this *Manager) Unsubscribe(topic []byte, subscriber, profile interface{}) error {
+	return this.p.Unsubscribe(topic, subscriber, profile)
 }
 
-func (this *Manager) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error {
-	return this.p.Subscribers(topic, qos, subs, qoss)
+func (this *Manager) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte, profile interface{}) error {
+	return this.p.Subscribers(topic, qos, subs, qoss, profile)
 }
 
-func (this *Manager) Retain(msg *message.PublishMessage) error {
-	return this.p.Retain(msg)
+func (this *Manager) Retain(msg *message.PublishMessage, profile interface{}) error {
+	return this.p.Retain(msg, profile)
 }
 
-func (this *Manager) Retained(topic []byte, msgs *[]*message.PublishMessage) error {
-	return this.p.Retained(topic, msgs)
+func (this *Manager) Retained(topic []byte, msgs *[]*message.PublishMessage, profile interface{}) error {
+	return this.p.Retained(topic, msgs, profile)
 }
 
 func (this *Manager) Close() error {

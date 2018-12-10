@@ -312,7 +312,7 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 	this.rmsgs = this.rmsgs[0:0]
 
 	for i, t := range topics {
-		rqos, err := this.topicsMgr.Subscribe(t, qos[i], &this.onpub)
+		rqos, err := this.topicsMgr.Subscribe(t, qos[i], &this.onpub, this.profile)
 		if err != nil {
 			return err
 		}
@@ -322,7 +322,7 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 
 		// yeah I am not checking errors here. If there's an error we don't want the
 		// subscription to stop, just let it go.
-		this.topicsMgr.Retained(t, &this.rmsgs)
+		this.topicsMgr.Retained(t, &this.rmsgs, this.profile)
 		glog.Debugf("(%s) topic = %s, retained count = %d", this.cid(), string(t), len(this.rmsgs))
 	}
 
@@ -349,7 +349,7 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 	topics := msg.Topics()
 
 	for _, t := range topics {
-		this.topicsMgr.Unsubscribe(t, &this.onpub)
+		this.topicsMgr.Unsubscribe(t, &this.onpub, this.profile)
 		this.sess.RemoveTopic(string(t))
 	}
 
@@ -365,12 +365,12 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 // topic, and publishes the message to the list of subscribers.
 func (this *service) onPublish(msg *message.PublishMessage) error {
 	if msg.Retain() {
-		if err := this.topicsMgr.Retain(msg); err != nil {
+		if err := this.topicsMgr.Retain(msg, this.profile); err != nil {
 			glog.Errorf("(%s) Error retaining message: %v", this.cid(), err)
 		}
 	}
 
-	err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss)
+	err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss, this.profile)
 	if err != nil {
 		glog.Errorf("(%s) Error retrieving subscribers list: %v", this.cid(), err)
 		return err

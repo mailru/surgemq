@@ -112,6 +112,11 @@ type service struct {
 	// will call publish() to send the message.
 	onpub OnPublishFunc
 
+	// Profile for the current connection.
+	// Can contains anything, for example, unique ID of the connection to check
+	// access rights in TopicsProvider.
+	profile interface{}
+
 	inStat  stat
 	outStat stat
 
@@ -156,7 +161,7 @@ func (this *service) start() error {
 			return err
 		} else {
 			for i, t := range topics {
-				this.topicsMgr.Subscribe([]byte(t), qoss[i], &this.onpub)
+				this.topicsMgr.Subscribe([]byte(t), qoss[i], &this.onpub, this.profile)
 			}
 		}
 	}
@@ -227,7 +232,7 @@ func (this *service) stop() {
 			glog.Errorf("(%s/%d): %v", this.cid(), this.id, err)
 		} else {
 			for _, t := range topics {
-				if err := this.topicsMgr.Unsubscribe([]byte(t), &this.onpub); err != nil {
+				if err := this.topicsMgr.Unsubscribe([]byte(t), &this.onpub, this.profile); err != nil {
 					glog.Errorf("(%s): Error unsubscribing topic %q: %v", this.cid(), t, err)
 				}
 			}
@@ -247,7 +252,7 @@ func (this *service) stop() {
 
 	// Remove the session from session store if it's suppose to be clean session
 	if this.sess.Cmsg.CleanSession() && this.sessMgr != nil {
-		this.sessMgr.Del(this.sess.ID())
+		this.sessMgr.Del(this.sess.ID(), this.profile)
 	}
 
 	this.conn = nil
@@ -343,7 +348,7 @@ func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompl
 				err2 = fmt.Errorf("Failed to subscribe to '%s'\n%v", string(t), err2)
 			} else {
 				this.sess.AddTopic(string(t), c)
-				_, err := this.topicsMgr.Subscribe(t, c, &onPublish)
+				_, err := this.topicsMgr.Subscribe(t, c, &onPublish, this.profile)
 				if err != nil {
 					err2 = fmt.Errorf("Failed to subscribe to '%s' (%v)\n%v", string(t), err, err2)
 				}
@@ -404,7 +409,7 @@ func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnC
 		for _, tb := range unsub.Topics() {
 			// Remove all subscribers, which basically it's just this client, since
 			// each client has it's own topic tree.
-			err := this.topicsMgr.Unsubscribe(tb, nil)
+			err := this.topicsMgr.Unsubscribe(tb, nil, this.profile)
 			if err != nil {
 				err2 = fmt.Errorf("%v\n%v", err2, err)
 			}
