@@ -109,7 +109,7 @@ type Server struct {
 	// A indicator on whether this server has already checked configuration
 	configOnce sync.Once
 
-	subs []interface{}
+	subs []topics.Subscriber
 	qoss []byte
 }
 
@@ -200,12 +200,7 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 	//glog.Debugf("(server) Publishing to topic %q and %d subscribers", string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			fn, ok := s.(*OnPublishFunc)
-			if !ok {
-				glog.Errorf("Invalid onPublish Function")
-			} else {
-				(*fn)(msg)
-			}
+			s.OnPublish(msg)
 		}
 	}
 

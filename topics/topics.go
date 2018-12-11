@@ -49,11 +49,15 @@ var (
 	providers = make(map[string]TopicsProvider)
 )
 
+type Subscriber interface {
+	OnPublish(msg *message.PublishMessage) error
+}
+
 // TopicsProvider
 type TopicsProvider interface {
-	Subscribe(topic []byte, qos byte, subscriber, profile interface{}) (byte, error)
-	Unsubscribe(topic []byte, subscriber interface{}, profile interface{}) error
-	Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte, profile interface{}) error
+	Subscribe(topic []byte, qos byte, subscriber Subscriber, profile interface{}) (byte, error)
+	Unsubscribe(topic []byte, subscriber Subscriber, profile interface{}) error
+	Subscribers(topic []byte, qos byte, subs *[]Subscriber, qoss *[]byte, profile interface{}) error
 	Retain(msg *message.PublishMessage, profile interface{}) error
 	Retained(topic []byte, msgs *[]*message.PublishMessage, profile interface{}) error
 	Close() error
@@ -88,15 +92,15 @@ func NewManager(providerName string) (*Manager, error) {
 	return &Manager{p: p}, nil
 }
 
-func (this *Manager) Subscribe(topic []byte, qos byte, subscriber, profile interface{}) (byte, error) {
+func (this *Manager) Subscribe(topic []byte, qos byte, subscriber Subscriber, profile interface{}) (byte, error) {
 	return this.p.Subscribe(topic, qos, subscriber, profile)
 }
 
-func (this *Manager) Unsubscribe(topic []byte, subscriber, profile interface{}) error {
+func (this *Manager) Unsubscribe(topic []byte, subscriber Subscriber, profile interface{}) error {
 	return this.p.Unsubscribe(topic, subscriber, profile)
 }
 
-func (this *Manager) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte, profile interface{}) error {
+func (this *Manager) Subscribers(topic []byte, qos byte, subs *[]Subscriber, qoss *[]byte, profile interface{}) error {
 	return this.p.Subscribers(topic, qos, subs, qoss, profile)
 }
 

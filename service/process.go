@@ -312,7 +312,7 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 	this.rmsgs = this.rmsgs[0:0]
 
 	for i, t := range topics {
-		rqos, err := this.topicsMgr.Subscribe(t, qos[i], &this.onpub, this.profile)
+		rqos, err := this.topicsMgr.Subscribe(t, qos[i], this.onpub, this.profile)
 		if err != nil {
 			return err
 		}
@@ -349,7 +349,7 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 	topics := msg.Topics()
 
 	for _, t := range topics {
-		this.topicsMgr.Unsubscribe(t, &this.onpub, this.profile)
+		this.topicsMgr.Unsubscribe(t, this.onpub, this.profile)
 		this.sess.RemoveTopic(string(t))
 	}
 
@@ -381,13 +381,7 @@ func (this *service) onPublish(msg *message.PublishMessage) error {
 	//glog.Debugf("(%s) Publishing to topic %q and %d subscribers", this.cid(), string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			fn, ok := s.(*OnPublishFunc)
-			if !ok {
-				glog.Errorf("Invalid onPublish Function")
-				return fmt.Errorf("Invalid onPublish Function")
-			} else {
-				(*fn)(msg)
-			}
+			s.OnPublish(msg)
 		}
 	}
 
