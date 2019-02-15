@@ -28,10 +28,10 @@ func init() {
 	Register("mockFailure", mockFailureAuthenticator)
 }
 
-func (this mockAuthenticator) Authenticate(id string, cred interface{}) error {
+func (this mockAuthenticator) Authenticate(id string, cred interface{}) (interface{}, error) {
 	if this == true {
-		return nil
+		return struct{}{}, nil
 	}
 
-	return ErrAuthFailure
+	return nil, ErrAuthFailure
 }

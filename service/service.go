@@ -22,13 +22,12 @@ import (
 
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/sessions"
-	"github.com/surgemq/surgemq/topics"
+	"github.com/RepentantGopher/surgemq/sessions"
+	"github.com/RepentantGopher/surgemq/topics"
 )
 
 type (
 	OnCompleteFunc func(msg, ack message.Message, err error) error
-	OnPublishFunc  func(msg *message.PublishMessage) error
 )
 
 type stat struct {
@@ -110,7 +109,12 @@ type service struct {
 	// For the server, when this method is called, it means there's a message that
 	// should be published to the client on the other end of this connection. So we
 	// will call publish() to send the message.
-	onpub OnPublishFunc
+	onpub Subscriber
+
+	// Profile for the current connection.
+	// Can contains anything, for example, unique ID of the connection to check
+	// access rights in TopicsProvider.
+	profile interface{}
 
 	inStat  stat
 	outStat stat
@@ -118,7 +122,7 @@ type service struct {
 	intmp  []byte
 	outtmp []byte
 
-	subs  []interface{}
+	subs  []topics.Subscriber
 	qoss  []byte
 	rmsgs []*message.PublishMessage
 }
@@ -141,22 +145,15 @@ func (this *service) start() error {
 	// If this is a server
 	if !this.client {
 		// Creat the onPublishFunc so it can be used for published messages
-		this.onpub = func(msg *message.PublishMessage) error {
-			if err := this.publish(msg, nil); err != nil {
-				glog.Errorf("service/onPublish: Error publishing message: %v", err)
-				return err
-			}
-
-			return nil
-		}
+		this.onpub = newSubscriber(this)
 
 		// If this is a recovered session, then add any topics it subscribed before
-		topics, qoss, err := this.sess.Topics()
+		t, qoss, err := this.sess.Topics()
 		if err != nil {
 			return err
 		} else {
-			for i, t := range topics {
-				this.topicsMgr.Subscribe([]byte(t), qoss[i], &this.onpub)
+			for i, t := range t {
+				this.topicsMgr.Subscribe([]byte(t), qoss[i], this.onpub, this.profile)
 			}
 		}
 	}
@@ -222,12 +219,12 @@ func (this *service) stop() {
 
 	// Unsubscribe from all the topics for this client, only for the server side though
 	if !this.client && this.sess != nil {
-		topics, _, err := this.sess.Topics()
+		t, _, err := this.sess.Topics()
 		if err != nil {
 			glog.Errorf("(%s/%d): %v", this.cid(), this.id, err)
 		} else {
-			for _, t := range topics {
-				if err := this.topicsMgr.Unsubscribe([]byte(t), &this.onpub); err != nil {
+			for _, t := range t {
+				if err := this.topicsMgr.Unsubscribe([]byte(t), this.onpub, this.profile); err != nil {
 					glog.Errorf("(%s): Error unsubscribing topic %q: %v", this.cid(), t, err)
 				}
 			}
@@ -247,7 +244,7 @@ func (this *service) stop() {
 
 	// Remove the session from session store if it's suppose to be clean session
 	if this.sess.Cmsg.CleanSession() && this.sessMgr != nil {
-		this.sessMgr.Del(this.sess.ID())
+		this.sessMgr.Del(this.sess.ID(), this.profile)
 	}
 
 	this.conn = nil
@@ -280,81 +277,55 @@ func (this *service) publish(msg *message.PublishMessage, onComplete OnCompleteF
 	return nil
 }
 
-func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompleteFunc, onPublish OnPublishFunc) error {
-	if onPublish == nil {
-		return fmt.Errorf("onPublish function is nil. No need to subscribe.")
-	}
-
+func (this *service) subscribe(msg *message.SubscribeMessage, subscriber Subscriber) error {
 	_, err := this.writeMessage(msg)
 	if err != nil {
 		return fmt.Errorf("(%s) Error sending %s message: %v", this.cid(), msg.Name(), err)
 	}
 
 	var onc OnCompleteFunc = func(msg, ack message.Message, err error) error {
-		onComplete := onComplete
-		onPublish := onPublish
-
 		if err != nil {
-			if onComplete != nil {
-				return onComplete(msg, ack, err)
-			}
-			return err
+			return subscriber.OnComplete(msg, ack, err)
 		}
 
 		sub, ok := msg.(*message.SubscribeMessage)
 		if !ok {
-			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Invalid SubscribeMessage received"))
-			}
-			return nil
+			return subscriber.OnComplete(msg, ack, fmt.Errorf("Invalid SubscribeMessage received"))
 		}
 
 		suback, ok := ack.(*message.SubackMessage)
 		if !ok {
-			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Invalid SubackMessage received"))
-			}
-			return nil
+			return subscriber.OnComplete(msg, ack, fmt.Errorf("Invalid SubackMessage received"))
 		}
 
 		if sub.PacketId() != suback.PacketId() {
-			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Sub and Suback packet ID not the same. %d != %d.", sub.PacketId(), suback.PacketId()))
-			}
-			return nil
+			return subscriber.OnComplete(msg, ack, fmt.Errorf("Sub and Suback packet ID not the same. %d != %d.", sub.PacketId(), suback.PacketId()))
 		}
 
 		retcodes := suback.ReturnCodes()
-		topics := sub.Topics()
+		t := sub.Topics()
 
-		if len(topics) != len(retcodes) {
-			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Incorrect number of return codes received. Expecting %d, got %d.", len(topics), len(retcodes)))
-			}
-			return nil
+		if len(t) != len(retcodes) {
+			return subscriber.OnComplete(msg, ack, fmt.Errorf("Incorrect number of return codes received. Expecting %d, got %d.", len(t), len(retcodes)))
 		}
 
 		var err2 error = nil
 
-		for i, t := range topics {
+		for i, t := range t {
 			c := retcodes[i]
 
 			if c == message.QosFailure {
 				err2 = fmt.Errorf("Failed to subscribe to '%s'\n%v", string(t), err2)
 			} else {
 				this.sess.AddTopic(string(t), c)
-				_, err := this.topicsMgr.Subscribe(t, c, &onPublish)
+				_, err := this.topicsMgr.Subscribe(t, c, subscriber, this.profile)
 				if err != nil {
 					err2 = fmt.Errorf("Failed to subscribe to '%s' (%v)\n%v", string(t), err, err2)
 				}
 			}
 		}
 
-		if onComplete != nil {
-			return onComplete(msg, ack, err2)
-		}
-
-		return err2
+		return subscriber.OnComplete(msg, ack, err2)
 	}
 
 	return this.sess.Suback.Wait(msg, onc)
@@ -404,7 +375,7 @@ func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnC
 		for _, tb := range unsub.Topics() {
 			// Remove all subscribers, which basically it's just this client, since
 			// each client has it's own topic tree.
-			err := this.topicsMgr.Unsubscribe(tb, nil)
+			err := this.topicsMgr.Unsubscribe(tb, nil, this.profile)
 			if err != nil {
 				err2 = fmt.Errorf("%v\n%v", err2, err)
 			}

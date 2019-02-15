@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/sessions"
-	"github.com/surgemq/surgemq/topics"
+	"github.com/RepentantGopher/surgemq/sessions"
+	"github.com/RepentantGopher/surgemq/topics"
 )
 
 const (
@@ -141,8 +141,8 @@ func (this *Client) Connect(uri string, msg *message.ConnectMessage) (err error)
 // immediately after the message is sent to the outgoing buffer. For QOS 1 messages,
 // onComplete is called when PUBACK is received. For QOS 2 messages, onComplete is
 // called after the PUBCOMP message is received.
-func (this *Client) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
-	return this.svc.publish(msg, onComplete)
+func (this *Client) Publish(msg *message.PublishMessage, completeFunc OnCompleteFunc) error {
+	return this.svc.publish(msg, completeFunc)
 }
 
 // Subscribe sends a single SUBSCRIBE message to the server. The SUBSCRIBE message
@@ -154,8 +154,8 @@ func (this *Client) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 // client subscribed to, the onPublish function is called to handle those messages.
 // So in effect, the client can supply different onPublish functions for different
 // topics.
-func (this *Client) Subscribe(msg *message.SubscribeMessage, onComplete OnCompleteFunc, onPublish OnPublishFunc) error {
-	return this.svc.subscribe(msg, onComplete, onPublish)
+func (this *Client) Subscribe(msg *message.SubscribeMessage, subscriber Subscriber) error {
+	return this.svc.subscribe(msg, subscriber)
 }
 
 // Unsubscribe sends a single UNSUBSCRIBE message to the server. The UNSUBSCRIBE
@@ -163,15 +163,15 @@ func (this *Client) Subscribe(msg *message.SubscribeMessage, onComplete OnComple
 // completion, which is when the client receives a UNSUBACK message from the server,
 // the supplied onComplete function is called. The client will no longer handle
 // messages from the server for those unsubscribed topics.
-func (this *Client) Unsubscribe(msg *message.UnsubscribeMessage, onComplete OnCompleteFunc) error {
-	return this.svc.unsubscribe(msg, onComplete)
+func (this *Client) Unsubscribe(msg *message.UnsubscribeMessage, completeFunc OnCompleteFunc) error {
+	return this.svc.unsubscribe(msg, completeFunc)
 }
 
 // Ping sends a single PINGREQ message to the server. PINGREQ/PINGRESP messages are
 // mainly used by the client to keep a heartbeat to the server so the connection won't
 // be dropped.
-func (this *Client) Ping(onComplete OnCompleteFunc) error {
-	return this.svc.ping(onComplete)
+func (this *Client) Ping(completeFunc OnCompleteFunc) error {
+	return this.svc.ping(completeFunc)
 }
 
 // Disconnect sends a single DISCONNECT message to the server. The client immediately

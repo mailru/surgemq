@@ -36,7 +36,7 @@ func NewMemProvider() *memProvider {
 	}
 }
 
-func (this *memProvider) New(id string) (*Session, error) {
+func (this *memProvider) New(id string, profile interface{}) (*Session, error) {
 	this.mu.Lock()
 	defer this.mu.Unlock()
 
@@ -44,7 +44,7 @@ func (this *memProvider) New(id string) (*Session, error) {
 	return this.st[id], nil
 }
 
-func (this *memProvider) Get(id string) (*Session, error) {
+func (this *memProvider) Get(id string, profile interface{}) (*Session, error) {
 	this.mu.RLock()
 	defer this.mu.RUnlock()
 
@@ -56,13 +56,13 @@ func (this *memProvider) Get(id string) (*Session, error) {
 	return sess, nil
 }
 
-func (this *memProvider) Del(id string) {
+func (this *memProvider) Del(id string, profile interface{}) {
 	this.mu.Lock()
 	defer this.mu.Unlock()
 	delete(this.st, id)
 }
 
-func (this *memProvider) Save(id string) error {
+func (this *memProvider) Save(id string, profile interface{}) error {
 	return nil
 }
 

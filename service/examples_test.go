@@ -30,6 +30,18 @@ func ExampleServer() {
 	svr.ListenAndServe("tcp://:1883")
 }
 
+type ExampleSubscriber struct {
+
+}
+
+func(s *ExampleSubscriber) OnPublish(msg *message.PublishMessage) error {
+	return nil
+}
+
+func(s *ExampleSubscriber) OnComplete(msg, ack message.Message, err error) error {
+	return nil
+}
+
 func ExampleClient() {
 	// Instantiates a new Client
 	c := &Client{}
@@ -58,7 +70,7 @@ func ExampleClient() {
 	// Nil means we are ignoring the SUBACK messages. The second nil should be a
 	// OnPublishFunc that handles any messages send to the client because of this
 	// subscription. Nil means we are ignoring any PUBLISH messages for this topic.
-	c.Subscribe(submsg, nil, nil)
+	c.Subscribe(submsg, &ExampleSubscriber{})
 
 	// Creates a new PUBLISH message with the appropriate contents for publishing
 	pubmsg := message.NewPublishMessage()

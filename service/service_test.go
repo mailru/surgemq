@@ -25,7 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/topics"
+
+	"github.com/RepentantGopher/surgemq/topics"
 )
 
 var authenticator string = "mockSuccess"
@@ -39,6 +40,19 @@ func TestServiceConnectAuthError(t *testing.T) {
 	authenticator = "mockFailure"
 	runClientServerTests(t, nil)
 	authenticator = old
+}
+
+type testSubscriber struct {
+	onPublish func(msg *message.PublishMessage) error
+	onComplete func(msg, ack message.Message, err error) error
+}
+
+func(s *testSubscriber) OnPublish(msg *message.PublishMessage) error {
+	return s.onPublish(msg)
+}
+
+func(s *testSubscriber) OnComplete(msg, ack message.Message, err error) error {
+	return s.onComplete(msg, ack, err)
 }
 
 func TestServiceWillDelivery(t *testing.T) {
@@ -77,8 +91,8 @@ func TestServiceWillDelivery(t *testing.T) {
 	subdone := int64(0)
 	willdone := int64(0)
 
-	c2.Subscribe(sub,
-		func(msg, ack message.Message, err error) error {
+	subscriber2 := &testSubscriber{
+		onComplete: func(msg, ack message.Message, err error) error {
 			subs := atomic.AddInt64(&subdone, 1)
 			if subs == int64(subscribers-1) {
 				c1.Disconnect()
@@ -86,7 +100,7 @@ func TestServiceWillDelivery(t *testing.T) {
 
 			return nil
 		},
-		func(msg *message.PublishMessage) error {
+		onPublish: func(msg *message.PublishMessage) error {
 			require.Equal(t, message.QosAtLeastOnce, msg.QoS())
 			require.Equal(t, []byte("send me home"), msg.Payload())
 
@@ -96,10 +110,14 @@ func TestServiceWillDelivery(t *testing.T) {
 			}
 
 			return nil
-		})
+		},
+	}
 
-	c3.Subscribe(sub,
-		func(msg, ack message.Message, err error) error {
+	c2.Subscribe(sub, subscriber2)
+
+
+	subscriber3 := &testSubscriber{
+		onComplete: func(msg, ack message.Message, err error) error {
 			subs := atomic.AddInt64(&subdone, 1)
 			if subs == int64(subscribers-1) {
 				c1.Disconnect()
@@ -107,7 +125,7 @@ func TestServiceWillDelivery(t *testing.T) {
 
 			return nil
 		},
-		func(msg *message.PublishMessage) error {
+		onPublish: func(msg *message.PublishMessage) error {
 			require.Equal(t, message.QosAtLeastOnce, msg.QoS())
 			require.Equal(t, []byte("send me home"), msg.Payload())
 
@@ -117,7 +135,10 @@ func TestServiceWillDelivery(t *testing.T) {
 			}
 
 			return nil
-		})
+		},
+	}
+
+	c3.Subscribe(sub, subscriber3)
 
 	select {
 	case <-ready3:
@@ -138,18 +159,19 @@ func TestServiceSubUnsub(t *testing.T) {
 		done := make(chan struct{})
 
 		sub := newSubscribeMessage(1)
-		c.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				unsub := newUnsubscribeMessage()
 				return c.Unsubscribe(unsub, func(msg, ack message.Message, err error) error {
 					close(done)
 					return nil
 				})
-
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				return nil
-			})
+			},
+		}
+		c.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -168,26 +190,27 @@ func TestServiceSubRetain(t *testing.T) {
 		rmsg.SetPayload([]byte("this is a test"))
 
 		tmgr, _ := topics.NewManager("mem")
-		err := tmgr.Retain(rmsg)
+		err := tmgr.Retain(rmsg, struct{}{})
 		require.NoError(t, err)
 
 		done := make(chan struct{})
 
 		sub := newSubscribeMessage(1)
-		c.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				unsub := newUnsubscribeMessage()
 				return c.Unsubscribe(unsub, func(msg, ack message.Message, err error) error {
 					close(done)
 					return nil
 				})
-
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				require.Equal(t, msg.Topic(), []byte("abc"))
 				require.Equal(t, msg.Payload(), []byte("this is a test"))
 				return nil
-			})
+			},
+		}
+		c.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -207,12 +230,12 @@ func TestServiceSub0Pub0(t *testing.T) {
 		count := 0
 
 		sub := newSubscribeMessage(0)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				assertPublishMessage(t, msg, 0)
 
 				count++
@@ -223,7 +246,9 @@ func TestServiceSub0Pub0(t *testing.T) {
 				}
 
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -258,12 +283,12 @@ func TestServiceSub1Pub0(t *testing.T) {
 		count := 0
 
 		sub := newSubscribeMessage(1)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				assertPublishMessage(t, msg, 0)
 
 				count++
@@ -274,7 +299,9 @@ func TestServiceSub1Pub0(t *testing.T) {
 				}
 
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -309,15 +336,17 @@ func TestServiceSub0Pub1(t *testing.T) {
 		ackcnt := 0
 
 		sub := newSubscribeMessage(0)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				require.FailNow(t, "Should not have received any publish message")
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -376,12 +405,12 @@ func TestServiceSub1Pub1(t *testing.T) {
 		ackcnt := 0
 
 		sub := newSubscribeMessage(1)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				count++
 
 				assertPublishMessage(t, msg, 1)
@@ -391,7 +420,9 @@ func TestServiceSub1Pub1(t *testing.T) {
 				}
 
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -454,12 +485,12 @@ func TestServiceSub2Pub1(t *testing.T) {
 		ackcnt := 0
 
 		sub := newSubscribeMessage(2)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				count++
 
 				assertPublishMessage(t, msg, 1)
@@ -469,7 +500,9 @@ func TestServiceSub2Pub1(t *testing.T) {
 				}
 
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -530,15 +563,17 @@ func TestServiceSub1Pub2(t *testing.T) {
 		ackcnt := 0
 
 		sub := newSubscribeMessage(1)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				require.FailNow(t, "Should not have received any publish message")
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:
@@ -597,12 +632,12 @@ func TestServiceSub2Pub2(t *testing.T) {
 		ackcnt := 0
 
 		sub := newSubscribeMessage(2)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
+		subscriber := &testSubscriber{
+			onComplete: func(msg, ack message.Message, err error) error {
 				close(done)
 				return nil
 			},
-			func(msg *message.PublishMessage) error {
+			onPublish: func(msg *message.PublishMessage) error {
 				count++
 
 				assertPublishMessage(t, msg, 2)
@@ -612,7 +647,9 @@ func TestServiceSub2Pub2(t *testing.T) {
 				}
 
 				return nil
-			})
+			},
+		}
+		svc.Subscribe(sub, subscriber)
 
 		select {
 		case <-done:

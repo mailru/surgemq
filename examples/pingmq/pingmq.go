@@ -71,7 +71,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/surge/netx"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/service"
+	"github.com/RepentantGopher/surgemq/service"
 )
 
 type strlist []string
@@ -188,7 +188,7 @@ func pinger() {
 			pubmsg.SetPayload(b)
 
 			// Publishes to the server
-			s.Publish(pubmsg, nil)
+			s.Publish(pubmsg, nil, nil)
 		}
 
 		p.Stop()
@@ -219,6 +219,25 @@ func server(cmd *cobra.Command, args []string) {
 	pinger()
 }
 
+type subscriber struct {
+
+}
+
+func(s *subscriber) OnPublish(msg *message.PublishMessage) error {
+	pr := &netx.PingResult{}
+	if err := pr.GobDecode(msg.Payload()); err != nil {
+		log.Printf("Error decoding ping result: %v\n", err)
+		return err
+	}
+
+	log.Println(pr)
+	return nil
+}
+
+func(s *subscriber) OnComplete(msg, ack message.Message, err error) error {
+	return nil
+}
+
 func client(cmd *cobra.Command, args []string) {
 	// Instantiates a new Client
 	c = &service.Client{}
@@ -242,20 +261,9 @@ func client(cmd *cobra.Command, args []string) {
 		submsg.AddTopic([]byte(t), 0)
 	}
 
-	c.Subscribe(submsg, nil, onPublish)
+	c.Subscribe(submsg, &subscriber{})
 
 	<-done
-}
-
-func onPublish(msg *message.PublishMessage) error {
-	pr := &netx.PingResult{}
-	if err := pr.GobDecode(msg.Payload()); err != nil {
-		log.Printf("Error decoding ping result: %v\n", err)
-		return err
-	}
-
-	log.Println(pr)
-	return nil
 }
 
 func main() {

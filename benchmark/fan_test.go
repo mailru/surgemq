@@ -23,7 +23,7 @@ import (
 
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/service"
+	"github.com/RepentantGopher/surgemq/service"
 )
 
 // Usage: go test -run=FullMesh
@@ -61,6 +61,40 @@ func TestFan(t *testing.T) {
 	glog.Infof("Total Received %d messages in %d ns, %d ns/msg, %d msgs/sec", totalRcvd, sentSince, int(float64(sentSince)/float64(totalRcvd)), int(float64(totalRcvd)/(float64(sentSince)/float64(time.Second))))
 }
 
+type fanSubscriber struct {
+	cnt      int
+	received int
+	now      time.Time
+	since    int64
+}
+
+func(s *fanSubscriber) OnPublish(msg *message.PublishMessage) error {
+	if s.received == 0 {
+		s.now = time.Now()
+	}
+
+	s.received++
+	//glog.Debugf("(surgemq%d) messages received=%d", cid, received)
+	s.since = time.Since(s.now).Nanoseconds()
+
+	if s.received == s.cnt {
+		rcvd := atomic.AddInt64(&rcvdone, 1)
+		if rcvd == int64(subscribers) {
+			close(done2)
+		}
+	}
+	return nil
+}
+
+func(s *fanSubscriber) OnComplete(msg, ack message.Message, err error) error {
+	subs := atomic.AddInt64(&subdone, 1)
+	if subs == int64(subscribers) {
+		s.now = time.Now()
+		close(done)
+	}
+	return nil
+}
+
 func startFanSubscribers(t testing.TB, cid int, wg *sync.WaitGroup) {
 	now := time.Now()
 
@@ -70,33 +104,12 @@ func startFanSubscribers(t testing.TB, cid int, wg *sync.WaitGroup) {
 		since := time.Since(now).Nanoseconds()
 
 		sub := newSubscribeMessage("test", 0)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
-				subs := atomic.AddInt64(&subdone, 1)
-				if subs == int64(subscribers) {
-					now = time.Now()
-					close(done)
-				}
-				return nil
-			},
-			func(msg *message.PublishMessage) error {
-				if received == 0 {
-					now = time.Now()
-				}
-
-				received++
-				//glog.Debugf("(surgemq%d) messages received=%d", cid, received)
-				since = time.Since(now).Nanoseconds()
-
-				if received == cnt {
-					rcvd := atomic.AddInt64(&rcvdone, 1)
-					if rcvd == int64(subscribers) {
-						close(done2)
-					}
-				}
-
-				return nil
-			})
+		svc.Subscribe(sub, &fanSubscriber{
+			cnt: cnt,
+			received: received,
+			now: now,
+			since: since,
+		})
 
 		select {
 		case <-done:

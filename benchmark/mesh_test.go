@@ -23,7 +23,7 @@ import (
 
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/service"
+	"github.com/RepentantGopher/surgemq/service"
 )
 
 // Usage: go test -run=Mesh
@@ -54,6 +54,38 @@ func TestMesh(t *testing.T) {
 	glog.Infof("Total Received %d messages in %d ns, %d ns/msg, %d msgs/sec", totalRcvd, rcvdSince, int(float64(rcvdSince)/float64(totalRcvd)), int(float64(totalRcvd)/(float64(rcvdSince)/float64(time.Second))))
 }
 
+type meshSubscriber struct {
+	cnt      int
+	received int
+	expected int
+	now      time.Time
+	since    int64
+}
+
+func(s *meshSubscriber) OnPublish(msg *message.PublishMessage) error {
+	if s.received == 0 {
+		s.now = time.Now()
+	}
+
+	s.received++
+	//glog.Debugf("(surgemq%d) messages received=%d", cid, received)
+	s.since = time.Since(s.now).Nanoseconds()
+
+	if s.received == s.expected {
+		close(done2)
+	}
+
+	return nil
+}
+
+func(s *meshSubscriber) OnComplete(msg, ack message.Message, err error) error {
+	subs := atomic.AddInt64(&subdone, 1)
+	if subs == int64(publishers) {
+		close(done)
+	}
+	return nil
+}
+
 func startMeshClient(t testing.TB, cid int, wg *sync.WaitGroup) {
 	runClientTest(t, cid, wg, func(svc *service.Client) {
 		done2 := make(chan struct{})
@@ -68,29 +100,13 @@ func startMeshClient(t testing.TB, cid int, wg *sync.WaitGroup) {
 		since := time.Since(now).Nanoseconds()
 
 		sub := newSubscribeMessage("test", 0)
-		svc.Subscribe(sub,
-			func(msg, ack message.Message, err error) error {
-				subs := atomic.AddInt64(&subdone, 1)
-				if subs == int64(publishers) {
-					close(done)
-				}
-				return nil
-			},
-			func(msg *message.PublishMessage) error {
-				if received == 0 {
-					now = time.Now()
-				}
-
-				received++
-				//glog.Debugf("(surgemq%d) messages received=%d", cid, received)
-				since = time.Since(now).Nanoseconds()
-
-				if received == expected {
-					close(done2)
-				}
-
-				return nil
-			})
+		svc.Subscribe(sub, &meshSubscriber{
+			cnt: cnt,
+			received: received,
+			expected: expected,
+			now: now,
+			since: since,
+		})
 
 		select {
 		case <-done:

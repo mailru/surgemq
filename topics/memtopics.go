@@ -58,7 +58,7 @@ func NewMemProvider() *memTopics {
 	}
 }
 
-func (this *memTopics) Subscribe(topic []byte, qos byte, sub interface{}) (byte, error) {
+func (this *memTopics) Subscribe(topic []byte, qos byte, sub Subscriber, profile interface{}) (byte, error) {
 	if !message.ValidQos(qos) {
 		return message.QosFailure, fmt.Errorf("Invalid QoS %d", qos)
 	}
@@ -81,7 +81,7 @@ func (this *memTopics) Subscribe(topic []byte, qos byte, sub interface{}) (byte,
 	return qos, nil
 }
 
-func (this *memTopics) Unsubscribe(topic []byte, sub interface{}) error {
+func (this *memTopics) Unsubscribe(topic []byte, sub Subscriber, profile interface{}) error {
 	this.smu.Lock()
 	defer this.smu.Unlock()
 
@@ -89,7 +89,7 @@ func (this *memTopics) Unsubscribe(topic []byte, sub interface{}) error {
 }
 
 // Returned values will be invalidated by the next Subscribers call
-func (this *memTopics) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error {
+func (this *memTopics) Subscribers(topic []byte, qos byte, subs *[]Subscriber, qoss *[]byte, profile interface{}) error {
 	if !message.ValidQos(qos) {
 		return fmt.Errorf("Invalid QoS %d", qos)
 	}
@@ -103,7 +103,7 @@ func (this *memTopics) Subscribers(topic []byte, qos byte, subs *[]interface{}, 
 	return this.sroot.smatch(topic, qos, subs, qoss)
 }
 
-func (this *memTopics) Retain(msg *message.PublishMessage) error {
+func (this *memTopics) Retain(msg *message.PublishMessage, profile interface{}) error {
 	this.rmu.Lock()
 	defer this.rmu.Unlock()
 
@@ -117,7 +117,7 @@ func (this *memTopics) Retain(msg *message.PublishMessage) error {
 	return this.rroot.rinsert(msg.Topic(), msg)
 }
 
-func (this *memTopics) Retained(topic []byte, msgs *[]*message.PublishMessage) error {
+func (this *memTopics) Retained(topic []byte, msgs *[]*message.PublishMessage, profile interface{}) error {
 	this.rmu.RLock()
 	defer this.rmu.RUnlock()
 
@@ -133,7 +133,7 @@ func (this *memTopics) Close() error {
 // subscrition nodes
 type snode struct {
 	// If this is the end of the topic string, then add subscribers here
-	subs []interface{}
+	subs []Subscriber
 	qos  []byte
 
 	// Otherwise add the next topic level here
@@ -146,7 +146,7 @@ func newSNode() *snode {
 	}
 }
 
-func (this *snode) sinsert(topic []byte, qos byte, sub interface{}) error {
+func (this *snode) sinsert(topic []byte, qos byte, sub Subscriber) error {
 	// If there's no more topic levels, that means we are at the matching snode
 	// to insert the subscriber. So let's see if there's such subscriber,
 	// if so, update it. Otherwise insert it.
@@ -190,7 +190,7 @@ func (this *snode) sinsert(topic []byte, qos byte, sub interface{}) error {
 
 // This remove implementation ignores the QoS, as long as the subscriber
 // matches then it's removed
-func (this *snode) sremove(topic []byte, sub interface{}) error {
+func (this *snode) sremove(topic []byte, sub Subscriber) error {
 	// If the topic is empty, it means we are at the final matching snode. If so,
 	// let's find the matching subscribers and remove them.
 	if len(topic) == 0 {
@@ -249,7 +249,7 @@ func (this *snode) sremove(topic []byte, sub interface{}) error {
 // with no wildcards (publish topic), it returns a list of subscribers that subscribes
 // to the topic. For each of the level names, it's a match
 // - if there are subscribers to '#', then all the subscribers are added to result set
-func (this *snode) smatch(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error {
+func (this *snode) smatch(topic []byte, qos byte, subs *[]Subscriber, qoss *[]byte) error {
 	// If the topic is empty, it means we are at the final matching snode. If so,
 	// let's find the subscribers that match the qos and append them to the list.
 	if len(topic) == 0 {
@@ -507,7 +507,7 @@ func nextTopicLevel(topic []byte) ([]byte, []byte, error) {
 // due to the QoS granted is lower than the published message QoS. For example,
 // if the client is granted only QoS 0, and the publish message is QoS 1, then this
 // client is not to be send the published message.
-func (this *snode) matchQos(qos byte, subs *[]interface{}, qoss *[]byte) {
+func (this *snode) matchQos(qos byte, subs *[]Subscriber, qoss *[]byte) {
 	for i, sub := range this.subs {
 		// If the published QoS is higher than the subscriber QoS, then we skip the
 		// subscriber. Otherwise, add to the list.

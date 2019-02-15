@@ -26,9 +26,9 @@ import (
 
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/surgemq/surgemq/auth"
-	"github.com/surgemq/surgemq/sessions"
-	"github.com/surgemq/surgemq/topics"
+	"github.com/RepentantGopher/surgemq/auth"
+	"github.com/RepentantGopher/surgemq/sessions"
+	"github.com/RepentantGopher/surgemq/topics"
 )
 
 var (
@@ -109,7 +109,7 @@ type Server struct {
 	// A indicator on whether this server has already checked configuration
 	configOnce sync.Once
 
-	subs []interface{}
+	subs []topics.Subscriber
 	qoss []byte
 }
 
@@ -180,18 +180,18 @@ func (this *Server) ListenAndServe(uri string) error {
 // immediately after the message is sent to the outgoing buffer. For QOS 1 messages,
 // onComplete is called when PUBACK is received. For QOS 2 messages, onComplete is
 // called after the PUBCOMP message is received.
-func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
+func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc, profile interface{}) error {
 	if err := this.checkConfiguration(); err != nil {
 		return err
 	}
 
 	if msg.Retain() {
-		if err := this.topicsMgr.Retain(msg); err != nil {
+		if err := this.topicsMgr.Retain(msg, profile); err != nil {
 			glog.Errorf("Error retaining message: %v", err)
 		}
 	}
 
-	if err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss); err != nil {
+	if err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss, profile); err != nil {
 		return err
 	}
 
@@ -200,12 +200,7 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 	//glog.Debugf("(server) Publishing to topic %q and %d subscribers", string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			fn, ok := s.(*OnPublishFunc)
-			if !ok {
-				glog.Errorf("Invalid onPublish Function")
-			} else {
-				(*fn)(msg)
-			}
+			s.OnPublish(msg)
 		}
 	}
 
@@ -290,7 +285,8 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	}
 
 	// Authenticate the user, if error, return error and exit
-	if err = this.authMgr.Authenticate(string(req.Username()), string(req.Password())); err != nil {
+	profile, err := this.authMgr.Authenticate(string(req.Username()), string(req.Password()))
+	if err != nil {
 		resp.SetReturnCode(message.ErrBadUsernameOrPassword)
 		resp.SetSessionPresent(false)
 		writeMessage(conn, resp)
@@ -311,6 +307,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		timeoutRetries: this.TimeoutRetries,
 
 		conn:      conn,
+		profile:   profile,
 		sessMgr:   this.sessMgr,
 		topicsMgr: this.topicsMgr,
 	}
@@ -418,7 +415,7 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 	// If CleanSession is NOT set, check the session store for existing session.
 	// If found, return it.
 	if !req.CleanSession() {
-		if svc.sess, err = this.sessMgr.Get(cid); err == nil {
+		if svc.sess, err = this.sessMgr.Get(cid, svc.profile); err == nil {
 			resp.SetSessionPresent(true)
 
 			if err := svc.sess.Update(req); err != nil {
@@ -429,7 +426,7 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 
 	// If CleanSession, or no existing session found, then create a new one
 	if svc.sess == nil {
-		if svc.sess, err = this.sessMgr.New(cid); err != nil {
+		if svc.sess, err = this.sessMgr.New(cid, svc.profile); err != nil {
 			return err
 		}
 

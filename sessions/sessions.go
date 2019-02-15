@@ -30,10 +30,10 @@ var (
 )
 
 type SessionsProvider interface {
-	New(id string) (*Session, error)
-	Get(id string) (*Session, error)
-	Del(id string)
-	Save(id string) error
+	New(id string, profile interface{}) (*Session, error)
+	Get(id string, profile interface{}) (*Session, error)
+	Del(id string, profile interface{})
+	Save(id string, profile interface{}) error
 	Count() int
 	Close() error
 }
@@ -70,23 +70,23 @@ func NewManager(providerName string) (*Manager, error) {
 	return &Manager{p: p}, nil
 }
 
-func (this *Manager) New(id string) (*Session, error) {
+func (this *Manager) New(id string, profile interface{}) (*Session, error) {
 	if id == "" {
 		id = this.sessionId()
 	}
-	return this.p.New(id)
+	return this.p.New(id, profile)
 }
 
-func (this *Manager) Get(id string) (*Session, error) {
-	return this.p.Get(id)
+func (this *Manager) Get(id string, profile interface{}) (*Session, error) {
+	return this.p.Get(id, profile)
 }
 
-func (this *Manager) Del(id string) {
-	this.p.Del(id)
+func (this *Manager) Del(id string, profile interface{}) {
+	this.p.Del(id, profile)
 }
 
-func (this *Manager) Save(id string) error {
-	return this.p.Save(id)
+func (this *Manager) Save(id string, profile interface{}) error {
+	return this.p.Save(id, profile)
 }
 
 func (this *Manager) Count() int {
