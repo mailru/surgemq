@@ -22,8 +22,8 @@ import (
 
 	"github.com/surge/glog"
 	"github.com/surgemq/message"
-	"github.com/RepentantGopher/surgemq/sessions"
-	"github.com/RepentantGopher/surgemq/topics"
+	"github.com/mailru/surgemq/sessions"
+	"github.com/mailru/surgemq/topics"
 )
 
 type (

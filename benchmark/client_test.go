@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/surgemq/message"
-	"github.com/RepentantGopher/surgemq/service"
+	"github.com/mailru/surgemq/service"
 )
 
 var (
