@@ -33,13 +33,13 @@ func (this *service) processor() {
 	defer func() {
 		// Let's recover from panic
 		if r := recover(); r != nil {
-			//this.logger.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
+			this.logger.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
 		}
 
 		this.wgStopped.Done()
 		this.stop()
 
-		//this.logger.Debugf("(%s) Stopping processor", this.cid())
+		this.logger.Debugf("(%s) Stopping processor", this.cid())
 	}()
 
 	this.logger.Debugf("(%s) Starting processor", this.cid())
