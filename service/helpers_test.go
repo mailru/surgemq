@@ -18,17 +18,17 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go.uber.org/zap"
 	"net"
 	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"github.com/surge/glog"
-	"github.com/surgemq/message"
 	"github.com/mailru/surgemq/sessions"
 	"github.com/mailru/surgemq/topics"
+	"github.com/stretchr/testify/require"
+	"github.com/surgemq/message"
 )
 
 var (
@@ -88,6 +88,7 @@ func startServiceN(t testing.TB, u *url.URL, wg *sync.WaitGroup, ready1, ready2 
 
 	svr := &Server{
 		Authenticator: authenticator,
+		logger:  zap.NewExample().Sugar(),
 	}
 
 	for i := 0; i < cnt; i++ {
@@ -106,7 +107,6 @@ func startServiceN(t testing.TB, u *url.URL, wg *sync.WaitGroup, ready1, ready2 
 	<-ready2
 
 	for _, svc := range svr.svcs {
-		glog.Infof("Stopping service %d", svc.id)
 		svc.stop()
 	}
 

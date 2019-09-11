@@ -16,12 +16,12 @@ package benchmark
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/surge/glog"
 	"github.com/surgemq/message"
 	"github.com/mailru/surgemq/service"
 )
@@ -57,8 +57,8 @@ func TestFan(t *testing.T) {
 
 	wg.Wait()
 
-	glog.Infof("Total Sent %d messages in %d ns, %d ns/msg, %d msgs/sec", totalSent, sentSince, int(float64(sentSince)/float64(totalSent)), int(float64(totalSent)/(float64(sentSince)/float64(time.Second))))
-	glog.Infof("Total Received %d messages in %d ns, %d ns/msg, %d msgs/sec", totalRcvd, sentSince, int(float64(sentSince)/float64(totalRcvd)), int(float64(totalRcvd)/(float64(sentSince)/float64(time.Second))))
+	fmt.Printf("Total Sent %d messages in %d ns, %d ns/msg, %d msgs/sec", totalSent, sentSince, int(float64(sentSince)/float64(totalSent)), int(float64(totalSent)/(float64(sentSince)/float64(time.Second))))
+	fmt.Printf("Total Received %d messages in %d ns, %d ns/msg, %d msgs/sec", totalRcvd, sentSince, int(float64(sentSince)/float64(totalRcvd)), int(float64(totalRcvd)/(float64(sentSince)/float64(time.Second))))
 }
 
 type fanSubscriber struct {
@@ -74,7 +74,7 @@ func(s *fanSubscriber) OnPublish(msg *message.PublishMessage) error {
 	}
 
 	s.received++
-	//glog.Debugf("(surgemq%d) messages received=%d", cid, received)
+	//fmt.Printf("(surgemq%d) messages received=%d", cid, received)
 	s.since = time.Since(s.now).Nanoseconds()
 
 	if s.received == s.cnt {
@@ -114,14 +114,14 @@ func startFanSubscribers(t testing.TB, cid int, wg *sync.WaitGroup) {
 		select {
 		case <-done:
 		case <-time.After(time.Second * time.Duration(subscribers)):
-			glog.Infof("(surgemq%d) Timed out waiting for subscribe response", cid)
+			fmt.Printf("(surgemq%d) Timed out waiting for subscribe response", cid)
 			return
 		}
 
 		select {
 		case <-done2:
 		case <-time.Tick(time.Second * time.Duration(nap*publishers)):
-			glog.Errorf("Timed out waiting for messages to be received.")
+			fmt.Printf("Timed out waiting for messages to be received.")
 		}
 
 		statMu.Lock()
@@ -132,7 +132,7 @@ func startFanSubscribers(t testing.TB, cid int, wg *sync.WaitGroup) {
 		}
 		statMu.Unlock()
 
-		glog.Debugf("(surgemq%d) Received %d messages in %d ns, %d ns/msg, %d msgs/sec", cid, received, since, int(float64(since)/float64(cnt)), int(float64(received)/(float64(since)/float64(time.Second))))
+		fmt.Printf("(surgemq%d) Received %d messages in %d ns, %d ns/msg, %d msgs/sec", cid, received, since, int(float64(since)/float64(cnt)), int(float64(received)/(float64(since)/float64(time.Second))))
 	})
 }
 
@@ -143,7 +143,7 @@ func startFanPublisher(t testing.TB, cid int, wg *sync.WaitGroup) {
 		select {
 		case <-done:
 		case <-time.After(time.Second * time.Duration(subscribers)):
-			glog.Infof("(surgemq%d) Timed out waiting for subscribe response", cid)
+			fmt.Printf("(surgemq%d) Timed out waiting for subscribe response", cid)
 			return
 		}
 
@@ -176,12 +176,12 @@ func startFanPublisher(t testing.TB, cid int, wg *sync.WaitGroup) {
 		}
 		statMu.Unlock()
 
-		glog.Debugf("(surgemq%d) Sent %d messages in %d ns, %d ns/msg, %d msgs/sec", cid, sent, since, int(float64(since)/float64(cnt)), int(float64(sent)/(float64(since)/float64(time.Second))))
+		fmt.Printf("(surgemq%d) Sent %d messages in %d ns, %d ns/msg, %d msgs/sec", cid, sent, since, int(float64(since)/float64(cnt)), int(float64(sent)/(float64(since)/float64(time.Second))))
 
 		select {
 		case <-done2:
 		case <-time.Tick(time.Second * time.Duration(nap*publishers)):
-			glog.Errorf("Timed out waiting for messages to be received.")
+			fmt.Printf("Timed out waiting for messages to be received.")
 		}
 	})
 }

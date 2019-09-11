@@ -23,24 +23,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/surge/glog"
 	"github.com/surgemq/message"
 
 	"github.com/mailru/surgemq/topics"
 )
 
 var authenticator string = "mockSuccess"
-
-func TestServiceConnectSuccess(t *testing.T) {
-	runClientServerTests(t, nil)
-}
-
-func TestServiceConnectAuthError(t *testing.T) {
-	old := authenticator
-	authenticator = "mockFailure"
-	runClientServerTests(t, nil)
-	authenticator = old
-}
 
 type testSubscriber struct {
 	onPublish func(msg *message.PublishMessage) error
@@ -53,6 +41,17 @@ func(s *testSubscriber) OnPublish(msg *message.PublishMessage) error {
 
 func(s *testSubscriber) OnComplete(msg, ack message.Message, err error) error {
 	return s.onComplete(msg, ack, err)
+}
+
+func TestServiceConnectSuccess(t *testing.T) {
+	runClientServerTests(t, nil)
+}
+
+func TestServiceConnectAuthError(t *testing.T) {
+	old := authenticator
+	authenticator = "mockFailure"
+	runClientServerTests(t, nil)
+	authenticator = old
 }
 
 func TestServiceWillDelivery(t *testing.T) {
@@ -241,7 +240,6 @@ func TestServiceSub0Pub0(t *testing.T) {
 				count++
 
 				if count == 10 {
-					glog.Debugf("got 10 pub0")
 					close(done2)
 				}
 
@@ -294,7 +292,6 @@ func TestServiceSub1Pub0(t *testing.T) {
 				count++
 
 				if count == 10 {
-					glog.Debugf("got 10 pub0")
 					close(done2)
 				}
 

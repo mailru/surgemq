@@ -82,10 +82,10 @@ func main() {
 	signal.Notify(sigchan, os.Interrupt, os.Kill)
 	go func() {
 		sig := <-sigchan
-		glog.Errorf("Existing due to trapped signal; %v", sig)
+		this.logger.Errorf("Existing due to trapped signal; %v", sig)
 
 		if f != nil {
-			glog.Errorf("Stopping profile")
+			this.logger.Errorf("Stopping profile")
 			pprof.StopCPUProfile()
 			f.Close()
 		}
@@ -113,6 +113,6 @@ func main() {
 	/* create plain MQTT listener */
 	err = svr.ListenAndServe(mqttaddr)
 	if err != nil {
-		glog.Errorf("surgemq/main: %v", err)
+		this.logger.Errorf("surgemq/main: %v", err)
 	}
 }
