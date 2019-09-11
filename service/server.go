@@ -236,6 +236,10 @@ func (this *Server) Close() error {
 	return nil
 }
 
+func (this *Server) SetLogger(logger *zap.SugaredLogger) {
+	this.logger = logger
+}
+
 // HandleConnection is for the broker to handle an incoming connection from a client
 func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	if c == nil {
@@ -386,6 +390,11 @@ func (this *Server) checkConfiguration() error {
 		}
 
 		this.topicsMgr, err = topics.NewManager(this.TopicsProvider)
+
+		if this.logger == nil {
+			logger, _ := zap.NewProduction()
+			this.logger = logger.Sugar()
+		}
 
 		return
 	})
