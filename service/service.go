@@ -186,13 +186,6 @@ func (this *service) start() error {
 // FIXME: The order of closing here causes panic sometimes. For example, if receiver
 // calls this, and closes the buffers, somehow it causes buffer.go:476 to panid.
 func (this *service) stop() {
-	defer func() {
-		// Let's recover from panic
-		if r := recover(); r != nil {
-			this.logger.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
-		}
-	}()
-
 	doit := atomic.CompareAndSwapInt64(&this.closed, 0, 1)
 	if !doit {
 		return

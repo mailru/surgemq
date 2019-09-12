@@ -43,17 +43,6 @@ func (r timeoutReader) Read(b []byte) (int, error) {
 
 // receiver() reads data from the network, and writes the data into the incoming buffer
 func (this *service) receiver() {
-	defer func() {
-		// Let's recover from panic
-		if r := recover(); r != nil {
-			this.logger.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
-		}
-
-		this.wgStopped.Done()
-
-		this.logger.Debugf("(%s) Stopping receiver", this.cid())
-	}()
-
 	this.logger.Debugf("(%s) Starting receiver", this.cid())
 
 	this.wgStarted.Done()
@@ -88,17 +77,6 @@ func (this *service) receiver() {
 
 // sender() writes data from the outgoing buffer to the network
 func (this *service) sender() {
-	defer func() {
-		// Let's recover from panic
-		if r := recover(); r != nil {
-			this.logger.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
-		}
-
-		this.wgStopped.Done()
-
-		this.logger.Debugf("(%s) Stopping sender", this.cid())
-	}()
-
 	this.logger.Debugf("(%s) Starting sender", this.cid())
 
 	this.wgStarted.Done()

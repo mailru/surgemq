@@ -17,11 +17,10 @@ package service
 import (
 	"errors"
 	"fmt"
+	"github.com/mailru/surgemq/sessions"
+	"github.com/surgemq/message"
 	"io"
 	"reflect"
-
-	"github.com/surgemq/message"
-	"github.com/mailru/surgemq/sessions"
 )
 
 var (
@@ -30,18 +29,6 @@ var (
 
 // processor() reads messages from the incoming buffer and processes them
 func (this *service) processor() {
-	defer func() {
-		// Let's recover from panic
-		if r := recover(); r != nil {
-			this.logger.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
-		}
-
-		this.wgStopped.Done()
-		this.stop()
-
-		this.logger.Debugf("(%s) Stopping processor", this.cid())
-	}()
-
 	this.logger.Debugf("(%s) Starting processor", this.cid())
 
 	this.wgStarted.Done()
