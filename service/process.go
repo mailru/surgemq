@@ -350,13 +350,15 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 // the ack cycle. This method will get the list of subscribers based on the publish
 // topic, and publishes the message to the list of subscribers.
 func (this *service) onPublish(msg *message.PublishMessage) error {
+	var err error
+
 	if msg.Retain() {
 		if err := this.topicsMgr.Retain(msg, this.profile); err != nil {
 			this.logger.Errorf("(%s) Error retaining message: %v", this.cid(), err)
 		}
 	}
 
-	err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss, this.profile)
+	err = this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss, this.profile)
 	if err != nil {
 		this.logger.Errorf("(%s) Error retrieving subscribers list: %v", this.cid(), err)
 		return err
@@ -364,10 +366,13 @@ func (this *service) onPublish(msg *message.PublishMessage) error {
 
 	msg.SetRetain(false)
 
-	//this.logger.Debugf("(%s) Publishing to topic %q and %d subscribers", this.cid(), string(msg.Topic()), len(this.subs))
+	this.logger.Debugf("(%s) Publishing to topic %q and %d subscribers", this.cid(), string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			s.OnPublish(msg)
+			err = s.OnPublish(msg)
+			if err != nil {
+				this.logger.Errorf("(%s) got error while  executing subscriber for topic '%q'", this.cid(), string(msg.Topic()))
+			}
 		}
 	}
 
