@@ -202,7 +202,10 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 	//this.logger.Debugf("(server) Publishing to topic %q and %d subscribers", string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			s.OnPublish(msg)
+			err := s.OnPublish(msg)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
