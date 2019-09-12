@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/mailru/surgemq/sessions"
 	"github.com/surgemq/message"
+	"go.uber.org/zap"
 	"io"
 	"reflect"
 )
@@ -371,7 +372,12 @@ func (this *service) onPublish(msg *message.PublishMessage) error {
 		if s != nil {
 			err = s.OnPublish(msg)
 			if err != nil {
-				this.logger.Errorf("(%s) got error while  executing subscriber for topic '%q'", this.cid(), string(msg.Topic()))
+				this.logger.Error(
+					"got error while  executing subscriber",
+					zap.String("cid", this.cid()),
+					zap.String("topic", string(msg.Topic())),
+					zap.Error(err),
+				)
 			}
 		}
 	}
