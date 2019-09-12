@@ -15,7 +15,7 @@
 package service
 
 import (
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 	"go.uber.org/zap"
 
 	"github.com/mailru/surgemq/topics"

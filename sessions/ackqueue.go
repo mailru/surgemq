@@ -20,7 +20,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 )
 
 var (

@@ -28,7 +28,7 @@ import (
 	"github.com/mailru/surgemq/sessions"
 	"github.com/mailru/surgemq/topics"
 	"github.com/stretchr/testify/require"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 )
 
 var (

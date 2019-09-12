@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 )
 
 type netReader interface {

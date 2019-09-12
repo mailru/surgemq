@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 
 	"go.uber.org/zap"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 	"github.com/mailru/surgemq/sessions"
 	"github.com/mailru/surgemq/topics"
 )

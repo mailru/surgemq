@@ -70,7 +70,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/surge/netx"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 	"github.com/mailru/surgemq/service"
 )
 

@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 
 	"github.com/mailru/surgemq/topics"
 )

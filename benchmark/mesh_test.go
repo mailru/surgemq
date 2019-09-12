@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 	"github.com/mailru/surgemq/service"
 )
 

@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 )
 
 type TestSubscriber struct {

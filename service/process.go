@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mailru/surgemq/sessions"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 	"go.uber.org/zap"
 	"io"
 	"reflect"
