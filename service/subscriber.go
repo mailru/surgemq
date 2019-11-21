@@ -15,8 +15,8 @@
 package service
 
 import (
-	"github.com/surge/glog"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
+	"go.uber.org/zap"
 
 	"github.com/mailru/surgemq/topics"
 )
@@ -28,11 +28,13 @@ type Subscriber interface {
 
 type subscriber struct {
 	service *service
+
+	logger *zap.SugaredLogger
 }
 
 func(s *subscriber) OnPublish(msg *message.PublishMessage) error {
 	if err := s.service.publish(msg, nil); err != nil {
-		glog.Errorf("service/onPublish: Error publishing message: %v", err)
+		s.logger.Errorf("service/onPublish: Error publishing message: %v", err)
 		return err
 	}
 
@@ -43,8 +45,9 @@ func(s *subscriber) OnComplete(msg, ack message.Message, err error) error {
 	return nil
 }
 
-func newSubscriber(service *service) *subscriber {
+func newSubscriber(logger *zap.SugaredLogger, service *service) *subscriber {
 	return &subscriber{
 		service: service,
+		logger:  logger,
 	}
 }

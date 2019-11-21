@@ -17,6 +17,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
 	"net"
 	"net/url"
@@ -24,11 +25,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/surge/glog"
-	"github.com/surgemq/message"
 	"github.com/mailru/surgemq/auth"
 	"github.com/mailru/surgemq/sessions"
 	"github.com/mailru/surgemq/topics"
+	"github.com/mailru/surgemq/message"
 )
 
 var (
@@ -111,6 +111,8 @@ type Server struct {
 
 	subs []topics.Subscriber
 	qoss []byte
+
+	logger *zap.SugaredLogger
 }
 
 // ListenAndServe listents to connections on the URI requested, and handles any
@@ -138,7 +140,7 @@ func (this *Server) ListenAndServe(uri string) error {
 	}
 	defer this.ln.Close()
 
-	glog.Infof("server/ListenAndServe: server is ready...")
+	this.logger.Infof("server/ListenAndServe: server is ready...")
 
 	var tempDelay time.Duration // how long to sleep on accept failure
 
@@ -164,7 +166,7 @@ func (this *Server) ListenAndServe(uri string) error {
 				if max := 1 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
-				glog.Errorf("server/ListenAndServe: Accept error: %v; retrying in %v", err, tempDelay)
+				this.logger.Errorf("server/ListenAndServe: Accept error: %v; retrying in %v", err, tempDelay)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -187,7 +189,7 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	if msg.Retain() {
 		if err := this.topicsMgr.Retain(msg, profile); err != nil {
-			glog.Errorf("Error retaining message: %v", err)
+			this.logger.Errorf("Error retaining message: %v", err)
 		}
 	}
 
@@ -197,10 +199,13 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	msg.SetRetain(false)
 
-	//glog.Debugf("(server) Publishing to topic %q and %d subscribers", string(msg.Topic()), len(this.subs))
+	//this.logger.Debugf("(server) Publishing to topic %q and %d subscribers", string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			s.OnPublish(msg)
+			err := s.OnPublish(msg)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -219,7 +224,7 @@ func (this *Server) Close() error {
 	this.ln.Close()
 
 	for _, svc := range this.svcs {
-		glog.Infof("Stopping service %d", svc.id)
+		this.logger.Infof("Stopping service %d", svc.id)
 		svc.stop()
 	}
 
@@ -232,6 +237,10 @@ func (this *Server) Close() error {
 	}
 
 	return nil
+}
+
+func (this *Server) SetLogger(logger *zap.SugaredLogger) {
+	this.logger = logger
 }
 
 // HandleConnection is for the broker to handle an incoming connection from a client
@@ -276,7 +285,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	req, err := getConnectMessage(conn)
 	if err != nil {
 		if cerr, ok := err.(message.ConnackCode); ok {
-			//glog.Debugf("request   message: %s\nresponse message: %s\nerror           : %v", mreq, resp, err)
+			//this.logger.Debugf("request   message: %s\nresponse message: %s\nerror           : %v", mreq, resp, err)
 			resp.SetReturnCode(cerr)
 			resp.SetSessionPresent(false)
 			writeMessage(conn, resp)
@@ -310,6 +319,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		profile:   profile,
 		sessMgr:   this.sessMgr,
 		topicsMgr: this.topicsMgr,
+		logger:    this.logger,
 	}
 
 	err = this.getSession(svc, req, resp)
@@ -335,7 +345,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	//this.svcs = append(this.svcs, svc)
 	//this.mu.Unlock()
 
-	glog.Infof("(%s) server/handleConnection: Connection established.", svc.cid())
+	this.logger.Infof("(%s) server/handleConnection: Connection established.", svc.cid())
 
 	return svc, nil
 }
@@ -383,6 +393,11 @@ func (this *Server) checkConfiguration() error {
 		}
 
 		this.topicsMgr, err = topics.NewManager(this.TopicsProvider)
+
+		if this.logger == nil {
+			logger, _ := zap.NewProduction()
+			this.logger = logger.Sugar()
+		}
 
 		return
 	})

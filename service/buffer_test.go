@@ -16,11 +16,10 @@ package service
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestBufferSequence(t *testing.T) {

@@ -16,11 +16,12 @@ package service
 
 import (
 	"bytes"
+	"go.uber.org/zap"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/surgemq/message"
+	"github.com/mailru/surgemq/message"
 )
 
 func TestReadMessageSuccess(t *testing.T) {
@@ -180,7 +181,9 @@ func TestWriteMessage(t *testing.T) {
 	msg.SetClientId([]byte("surgemq"))
 	var err error
 
-	svc := &service{}
+	svc := &service{
+		logger: zap.NewExample().Sugar(),
+	}
 	svc.out, err = newBuffer(16384)
 
 	require.NoError(t, err)
@@ -200,7 +203,9 @@ func TestWriteMessage(t *testing.T) {
 
 func newTestBuffer(t *testing.T, msgBytes []byte) *service {
 	buf := bytes.NewBuffer(msgBytes)
-	svc := &service{}
+	svc := &service{
+		logger: zap.NewExample().Sugar(),
+	}
 	var err error
 
 	svc.in, err = newBuffer(16384)
