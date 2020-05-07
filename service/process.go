@@ -17,11 +17,12 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/mailru/surgemq/sessions"
-	"github.com/mailru/surgemq/message"
-	"go.uber.org/zap"
 	"io"
 	"reflect"
+
+	"github.com/mailru/surgemq/message"
+	"github.com/mailru/surgemq/sessions"
+	"go.uber.org/zap"
 )
 
 var (
@@ -301,6 +302,9 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 	for i, t := range topics {
 		rqos, err := this.topicsMgr.Subscribe(t, qos[i], this.onpub, this.profile)
 		if err != nil {
+			retcodes = append(retcodes, rqos)
+			resp.AddReturnCodes(retcodes)
+			this.writeMessage(resp)
 			return err
 		}
 		this.sess.AddTopic(string(t), qos[i])
