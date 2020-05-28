@@ -509,10 +509,6 @@ func (this *ConnectMessage) decodeMessage(src []byte) (int, error) {
 		return total, fmt.Errorf("connect/decodeMessage: Protocol violation: If the Will Flag (%t) is set to 0 the Will QoS (%d) and Will Retain (%t) fields MUST be set to zero", this.WillFlag(), this.WillQos(), this.WillRetain())
 	}
 
-	if this.UsernameFlag() && !this.PasswordFlag() {
-		return total, fmt.Errorf("connect/decodeMessage: Username flag is set but Password flag is not set")
-	}
-
 	if len(src[total:]) < 2 {
 		return 0, fmt.Errorf("connect/decodeMessage: Insufficient buffer size. Expecting %d, got %d.", 2, len(src[total:]))
 	}
