@@ -308,6 +308,7 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 			return err
 		}
 		this.sess.AddTopic(string(t), qos[i])
+		this.sessMgr.Save(this.sess.ID(), this.profile)
 
 		retcodes = append(retcodes, rqos)
 
@@ -342,6 +343,7 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 	for _, t := range topics {
 		this.topicsMgr.Unsubscribe(t, this.onpub, this.profile)
 		this.sess.RemoveTopic(string(t))
+		this.sessMgr.Save(this.sess.ID(), this.profile)
 	}
 
 	resp := message.NewUnsubackMessage()
