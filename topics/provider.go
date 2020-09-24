@@ -13,6 +13,20 @@ var (
 	MaxQosAllowed = message.QosExactlyOnce
 )
 
+type Retainer interface {
+	Insert(topic []byte, msg *message.PublishMessage) error
+	Remove(topic []byte) error
+	Match(topic []byte, msgs *[]*message.PublishMessage) error
+	Close() error
+}
+
+type SessionKeeper interface {
+	Insert(topic []byte, qos byte, sub Subscriber) error
+	Remove(topic []byte, sub Subscriber) error
+	Match(topic []byte, qos byte, subs *[]Subscriber, qoss *[]byte) error
+	Close() error
+}
+
 type Provider struct {
 	rmut     *sync.RWMutex
 	retainer Retainer
@@ -100,11 +114,11 @@ func (s *Provider) Close() error {
 	return s.retainer.Close()
 }
 
-func NewMemProvider() TopicsProvider {
+func NewMemProvider() *Provider {
 	return NewProvider(NewMemRetainer(), NewMemSession())
 }
 
-func NewPudgeProvider(path string, syncIntv time.Duration) (TopicsProvider, error) {
+func NewPudgeProvider(path string, syncIntv time.Duration) (*Provider, error) {
 	s, err := NewPudgeStorage(path, syncIntv)
 	if err != nil {
 		return nil, err
@@ -116,10 +130,4 @@ func NewPudgeProvider(path string, syncIntv time.Duration) (TopicsProvider, erro
 	}
 
 	return NewProvider(r, NewMemSession()), nil
-}
-
-func init() {
-	Register("mem", NewMemProvider())
-	p, _ := NewPudgeProvider(DefaultDbPath, DefaultSyncIntv)
-	Register("pudge", p)
 }

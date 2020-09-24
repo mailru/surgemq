@@ -4,19 +4,19 @@ import (
 	"github.com/mailru/surgemq/message"
 )
 
-type Retainer interface {
-	Insert(topic []byte, msg *message.PublishMessage) error
-	Remove(topic []byte) error
-	Match(topic []byte, msgs *[]*message.PublishMessage) error
-	Close() error
+type storage interface {
+	messages() ([]*message.PublishMessage, error)
+	insert(topic []byte, msg *message.PublishMessage) error
+	remove(topic []byte) error
+	close() error
 }
 
 type StorageRetainer struct {
-	store    Storage
+	store    storage
 	retainer *MemRetainer
 }
 
-func NewStorageRetainer(s Storage) (*StorageRetainer, error) {
+func NewStorageRetainer(s storage) (*StorageRetainer, error) {
 	r := &StorageRetainer{
 		store:    s,
 		retainer: NewMemRetainer(),

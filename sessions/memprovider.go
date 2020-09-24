@@ -21,10 +21,6 @@ import (
 
 var _ SessionsProvider = (*memProvider)(nil)
 
-func init() {
-	Register("mem", NewMemProvider())
-}
-
 type memProvider struct {
 	st map[string]*Session
 	mu sync.RWMutex

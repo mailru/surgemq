@@ -1,12 +1,5 @@
 package topics
 
-type SessionKeeper interface {
-	Insert(topic []byte, qos byte, sub Subscriber) error
-	Remove(topic []byte, sub Subscriber) error
-	Match(topic []byte, qos byte, subs *[]Subscriber, qoss *[]byte) error
-	Close() error
-}
-
 type MemSession struct {
 	sroot *snode
 }

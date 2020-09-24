@@ -8,13 +8,6 @@ import (
 	"github.com/recoilme/pudge"
 )
 
-type Storage interface {
-	messages() ([]*message.PublishMessage, error)
-	insert(topic []byte, msg *message.PublishMessage) error
-	remove(topic []byte) error
-	close() error
-}
-
 const (
 	DefaultSyncIntv = time.Second
 	DefaultDbPath   = "db/message"

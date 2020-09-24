@@ -12,14 +12,9 @@ import (
 
 const (
 	DefaultSyncIntv = time.Second
-	DefaultExpireAt = time.Hour
+	DefaultTTL      = 24 * time.Hour
 	DefaultDbPath   = "db/session"
 )
-
-func init() {
-	p, _ := NewPudgeProvider(DefaultDbPath, DefaultSyncIntv, DefaultExpireAt)
-	Register("pudge", p)
-}
 
 type pudgeSession struct {
 	// cbuf is the CONNECT message buffer, this is for storing all the will stuff
@@ -89,7 +84,7 @@ type pudgeProvider struct {
 	db        *pudge.Db
 	config    pudgeConfig
 	expiresAt time.Duration
-	smut      *sync.Mutex
+	smut      *sync.RWMutex
 	sessions  map[string]*Session
 	tmut      *sync.Mutex
 	lastCheck time.Time
@@ -114,7 +109,7 @@ func NewPudgeProvider(path string, syncIntv, expiresAt time.Duration) (*pudgePro
 		db:        db,
 		config:    pudgeConfig{path: path, syncSec: syncIntv},
 		expiresAt: expiresAt,
-		smut:      &sync.Mutex{},
+		smut:      &sync.RWMutex{},
 		sessions:  make(map[string]*Session),
 		tmut:      &sync.Mutex{},
 		lastCheck: time.Now(),
@@ -200,8 +195,8 @@ func (p *pudgeProvider) Del(id string, profile interface{}) {
 }
 
 func (p *pudgeProvider) Save(id string, profile interface{}) error {
-	p.smut.Lock()
-	defer p.smut.Unlock()
+	p.smut.RLock()
+	defer p.smut.RUnlock()
 	sess, ok := p.sessions[id]
 	if !ok {
 		return fmt.Errorf("store/save not found session for id=%s", id)
