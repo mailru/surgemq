@@ -217,7 +217,12 @@ func (p *pudgeProvider) Save(id string, profile interface{}) error {
 }
 
 func (p *pudgeProvider) Count() int {
-	return len(p.sessions)
+	n, err := p.db.Count()
+	if err != nil {
+		return 0
+	}
+
+	return n
 }
 
 func (p *pudgeProvider) Close() error {
