@@ -72,6 +72,13 @@ type Session struct {
 	id string
 }
 
+// FIXME: There should be a better way to construct a Session object.
+//
+// For now all users of the Session type must construct it directly
+// In this case all required fields must be specified
+// The field types are complex, thus the initialization
+// of the Session object is prone to errors.
+
 func (this *Session) Init(msg *message.ConnectMessage) error {
 	this.mu.Lock()
 	defer this.mu.Unlock()
