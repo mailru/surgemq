@@ -83,7 +83,7 @@ type pudgeConfig struct {
 type pudgeProvider struct {
 	db        *pudge.Db
 	config    pudgeConfig
-	expiresAt time.Duration
+	ttl       time.Duration
 	smut      *sync.RWMutex
 	sessions  map[string]*Session
 	tmut      *sync.Mutex
@@ -99,7 +99,7 @@ func newPudgeDB(path string, syncIntv time.Duration) (*pudge.Db, error) {
 	})
 }
 
-func NewPudgeProvider(path string, syncIntv, expiresAt time.Duration) (*pudgeProvider, error) {
+func NewPudgeProvider(path string, syncIntv, ttl time.Duration) (*pudgeProvider, error) {
 	db, err := newPudgeDB(path, syncIntv)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func NewPudgeProvider(path string, syncIntv, expiresAt time.Duration) (*pudgePro
 	return &pudgeProvider{
 		db:        db,
 		config:    pudgeConfig{path: path, syncSec: syncIntv},
-		expiresAt: expiresAt,
+		ttl:       ttl,
 		smut:      &sync.RWMutex{},
 		sessions:  make(map[string]*Session),
 		tmut:      &sync.Mutex{},
@@ -129,7 +129,7 @@ func (p *pudgeProvider) expireSessions() error {
 			continue
 		}
 
-		isExpired := rec.Timestamp.Add(p.expiresAt).Before(time.Now())
+		isExpired := rec.Timestamp.Add(p.ttl).Before(time.Now())
 		if isExpired {
 			p.db.Delete(key)
 			p.smut.Lock()
@@ -145,7 +145,7 @@ func (p *pudgeProvider) renewExpireMark() bool {
 	p.tmut.Lock()
 	defer p.tmut.Unlock()
 	now := time.Now()
-	isExpired := p.lastCheck.Add(p.expiresAt).Before(now)
+	isExpired := p.lastCheck.Add(p.ttl).Before(now)
 	if isExpired {
 		p.lastCheck = now
 		return true
@@ -167,23 +167,31 @@ func (p *pudgeProvider) New(id string, profile interface{}) (*Session, error) {
 }
 
 func (p *pudgeProvider) Get(id string, profile interface{}) (*Session, error) {
+	p.smut.Lock()
+	defer p.smut.Unlock()
+	sess, ok := p.sessions[id]
+	if ok {
+		p.db.Set(id, pudgeEntry{
+			Sess:      newPudgeSession(sess),
+			Timestamp: time.Now(),
+		})
+
+		return sess, nil
+	}
+
 	var entry pudgeEntry
 	err := p.db.Get(id, &entry)
 	if err != nil {
 		return nil, err
 	}
 
-	err = p.db.Set(id, pudgeEntry{
+	p.db.Set(id, pudgeEntry{
 		Sess:      entry.Sess,
 		Timestamp: time.Now(),
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	p.smut.Lock()
-	defer p.smut.Unlock()
 	p.sessions[id] = entry.Sess.toSession()
+
 	return p.sessions[id], nil
 }
 
@@ -209,11 +217,7 @@ func (p *pudgeProvider) Save(id string, profile interface{}) error {
 }
 
 func (p *pudgeProvider) Count() int {
-	n, err := p.db.Count()
-	if err != nil {
-		return 0
-	}
-	return n
+	return len(p.sessions)
 }
 
 func (p *pudgeProvider) Close() error {
