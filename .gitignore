@@ -36,3 +36,7 @@ _testmain.go
 
 *.sublime-project
 *.sublime-workspace
+
+Gopkg.*
+vendor
+db

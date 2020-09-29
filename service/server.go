@@ -17,7 +17,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"net"
 	"net/url"
@@ -25,10 +24,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/mailru/surgemq/auth"
+	"github.com/mailru/surgemq/message"
 	"github.com/mailru/surgemq/sessions"
 	"github.com/mailru/surgemq/topics"
-	"github.com/mailru/surgemq/message"
 )
 
 var (
@@ -436,6 +437,10 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 			if err := svc.sess.Update(req); err != nil {
 				return err
 			}
+
+			if this.sessMgr != nil {
+				this.sessMgr.Save(cid, svc.profile)
+			}
 		}
 	}
 
@@ -449,6 +454,10 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 
 		if err := svc.sess.Init(req); err != nil {
 			return err
+		}
+
+		if this.sessMgr != nil {
+			this.sessMgr.Save(cid, svc.profile)
 		}
 	}
 

@@ -18,17 +18,18 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"go.uber.org/zap"
 	"net"
 	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	"go.uber.org/zap"
+
+	"github.com/mailru/surgemq/message"
 	"github.com/mailru/surgemq/sessions"
 	"github.com/mailru/surgemq/topics"
 	"github.com/stretchr/testify/require"
-	"github.com/mailru/surgemq/message"
 )
 
 var (
@@ -64,6 +65,7 @@ func runClientServerTests(t testing.TB, f func(*Client)) {
 
 	c.Disconnect()
 
+	ready2 <- struct{}{}
 	close(ready2)
 
 	wg.Wait()
@@ -84,11 +86,12 @@ func startServiceN(t testing.TB, u *url.URL, wg *sync.WaitGroup, ready1, ready2 
 	require.NoError(t, err)
 	defer ln.Close()
 
+	ready1 <- struct{}{}
 	close(ready1)
 
 	svr := &Server{
 		Authenticator: authenticator,
-		logger:  zap.NewExample().Sugar(),
+		logger:        zap.NewExample().Sugar(),
 	}
 
 	for i := 0; i < cnt; i++ {

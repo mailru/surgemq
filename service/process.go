@@ -34,6 +34,7 @@ func (this *service) processor() {
 	this.logger.Debugf("(%s) Starting processor", this.cid())
 
 	this.wgStarted.Done()
+	defer this.wgStopped.Done()
 
 	for {
 		// 1. Find out what message is next and the size of the message
@@ -308,6 +309,9 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 			return err
 		}
 		this.sess.AddTopic(string(t), qos[i])
+		if this.sessMgr != nil {
+			this.sessMgr.Save(this.sess.ID(), this.profile)
+		}
 
 		retcodes = append(retcodes, rqos)
 
@@ -342,6 +346,9 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 	for _, t := range topics {
 		this.topicsMgr.Unsubscribe(t, this.onpub, this.profile)
 		this.sess.RemoveTopic(string(t))
+		if this.sessMgr != nil {
+			this.sessMgr.Save(this.sess.ID(), this.profile)
+		}
 	}
 
 	resp := message.NewUnsubackMessage()

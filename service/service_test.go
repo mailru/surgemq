@@ -16,14 +16,16 @@ package service
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/mailru/surgemq/message"
+	"github.com/mailru/surgemq/sessions"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/mailru/surgemq/topics"
 )
@@ -31,15 +33,15 @@ import (
 var authenticator string = "mockSuccess"
 
 type testSubscriber struct {
-	onPublish func(msg *message.PublishMessage) error
+	onPublish  func(msg *message.PublishMessage) error
 	onComplete func(msg, ack message.Message, err error) error
 }
 
-func(s *testSubscriber) OnPublish(msg *message.PublishMessage) error {
+func (s *testSubscriber) OnPublish(msg *message.PublishMessage) error {
 	return s.onPublish(msg)
 }
 
-func(s *testSubscriber) OnComplete(msg, ack message.Message, err error) error {
+func (s *testSubscriber) OnComplete(msg, ack message.Message, err error) error {
 	return s.onComplete(msg, ack, err)
 }
 
@@ -55,22 +57,48 @@ func TestServiceConnectAuthError(t *testing.T) {
 }
 
 func TestServiceWillDelivery(t *testing.T) {
-	var wg sync.WaitGroup
-
-	ready1 := make(chan struct{})
-	ready2 := make(chan struct{})
-	ready3 := make(chan struct{})
-	subscribers := 3
-
 	uri := "tcp://127.0.0.1:1883"
 	u, err := url.Parse(uri)
 	require.NoError(t, err, "Error parsing URL")
 
-	// Start listener
-	wg.Add(1)
-	go startServiceN(t, u, &wg, ready1, ready2, subscribers)
+	var client_serv1, client_serv2 *service
+	var wg sync.WaitGroup
 
-	<-ready1
+	wg.Add(1)
+	go func() {
+		topics.Unregister("mem")
+		tp := topics.NewMemProvider()
+		topics.Register("mem", tp)
+
+		sessions.Unregister("mem")
+		sp := sessions.NewMemProvider()
+		sessions.Register("mem", sp)
+
+		ln, err := net.Listen(u.Scheme, u.Host)
+		require.NoError(t, err)
+		defer ln.Close()
+
+		svr := &Server{
+			Authenticator: authenticator,
+			logger:        zap.NewExample().Sugar(),
+		}
+
+		wg.Done()
+
+		conn, err := ln.Accept()
+		require.NoError(t, err)
+
+		client_serv1, err = svr.handleConnection(conn)
+		require.NoError(t, err)
+
+		conn, err = ln.Accept()
+		require.NoError(t, err)
+
+		client_serv2, err = svr.handleConnection(conn)
+		require.NoError(t, err)
+	}()
+
+	wg.Wait()
 
 	c1 := connectToServer(t, uri)
 	require.NotNil(t, c1)
@@ -80,77 +108,35 @@ func TestServiceWillDelivery(t *testing.T) {
 	require.NotNil(t, c2)
 	defer topics.Unregister(c2.svc.sess.ID())
 
-	c3 := connectToServer(t, uri)
-	require.NotNil(t, c3)
-	defer topics.Unregister(c3.svc.sess.ID())
+	ready_ch := make(chan struct{})
 
-	sub := message.NewSubscribeMessage()
-	sub.AddTopic([]byte("will"), 1)
+	subMsg := message.NewSubscribeMessage()
+	subMsg.AddTopic([]byte("will"), 1)
 
-	subdone := int64(0)
-	willdone := int64(0)
-
-	subscriber2 := &testSubscriber{
+	c2.Subscribe(subMsg, &testSubscriber{
 		onComplete: func(msg, ack message.Message, err error) error {
-			subs := atomic.AddInt64(&subdone, 1)
-			if subs == int64(subscribers-1) {
-				c1.Disconnect()
-			}
-
+			c1.Disconnect()
+			client_serv1.stop()
 			return nil
 		},
 		onPublish: func(msg *message.PublishMessage) error {
 			require.Equal(t, message.QosAtLeastOnce, msg.QoS())
 			require.Equal(t, []byte("send me home"), msg.Payload())
 
-			will := atomic.AddInt64(&willdone, 1)
-			if will == int64(subscribers-1) {
-				close(ready3)
-			}
+			close(ready_ch)
 
 			return nil
 		},
-	}
-
-	c2.Subscribe(sub, subscriber2)
-
-
-	subscriber3 := &testSubscriber{
-		onComplete: func(msg, ack message.Message, err error) error {
-			subs := atomic.AddInt64(&subdone, 1)
-			if subs == int64(subscribers-1) {
-				c1.Disconnect()
-			}
-
-			return nil
-		},
-		onPublish: func(msg *message.PublishMessage) error {
-			require.Equal(t, message.QosAtLeastOnce, msg.QoS())
-			require.Equal(t, []byte("send me home"), msg.Payload())
-
-			will := atomic.AddInt64(&willdone, 1)
-			if will == int64(subscribers-1) {
-				close(ready3)
-			}
-
-			return nil
-		},
-	}
-
-	c3.Subscribe(sub, subscriber3)
+	})
 
 	select {
-	case <-ready3:
-
-	case <-time.After(time.Millisecond * 100):
+	case <-ready_ch:
+	case <-time.After(time.Second):
 		require.FailNow(t, "Test timed out")
 	}
 
 	c2.Disconnect()
-
-	close(ready2)
-
-	wg.Wait()
+	client_serv2.stop()
 }
 
 func TestServiceSubUnsub(t *testing.T) {

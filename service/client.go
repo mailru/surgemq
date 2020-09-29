@@ -16,11 +16,12 @@ package service
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"net"
 	"net/url"
 	"sync/atomic"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/mailru/surgemq/message"
 	"github.com/mailru/surgemq/sessions"
@@ -112,7 +113,7 @@ func (this *Client) Connect(uri string, msg *message.ConnectMessage) (err error)
 		ackTimeout:     this.AckTimeout,
 		timeoutRetries: this.TimeoutRetries,
 
-		logger:  zap.NewExample().Sugar(),
+		logger: zap.NewExample().Sugar(),
 	}
 
 	err = this.getSession(this.svc, msg, resp)
@@ -187,7 +188,12 @@ func (this *Client) Disconnect() {
 func (this *Client) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
 	//id := string(req.ClientId())
 	svc.sess = &sessions.Session{}
-	return svc.sess.Init(req)
+	err := svc.sess.Init(req)
+	if err == nil && svc.sessMgr != nil {
+		svc.sessMgr.Save(svc.sess.ID(), svc.profile)
+	}
+
+	return err
 }
 
 func (this *Client) checkConfiguration() {
