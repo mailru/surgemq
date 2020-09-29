@@ -38,3 +38,5 @@ _testmain.go
 *.sublime-workspace
 
 Gopkg.*
+vendor
+db
