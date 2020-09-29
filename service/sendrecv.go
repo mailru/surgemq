@@ -46,6 +46,7 @@ func (this *service) receiver() {
 	this.logger.Debugf("(%s) Starting receiver", this.cid())
 
 	this.wgStarted.Done()
+	defer this.wgStopped.Done()
 
 	switch conn := this.conn.(type) {
 	case net.Conn:
@@ -80,6 +81,7 @@ func (this *service) sender() {
 	this.logger.Debugf("(%s) Starting sender", this.cid())
 
 	this.wgStarted.Done()
+	defer this.wgStopped.Done()
 
 	switch conn := this.conn.(type) {
 	case net.Conn:

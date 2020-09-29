@@ -313,7 +313,9 @@ func (this *service) subscribe(msg *message.SubscribeMessage, subscriber Subscri
 				err2 = fmt.Errorf("Failed to subscribe to '%s'\n%v", string(t), err2)
 			} else {
 				this.sess.AddTopic(string(t), c)
-				this.sessMgr.Save(this.sess.ID(), this.profile)
+				if this.sessMgr != nil {
+					this.sessMgr.Save(this.sess.ID(), this.profile)
+				}
 				_, err := this.topicsMgr.Subscribe(t, c, subscriber, this.profile)
 				if err != nil {
 					err2 = fmt.Errorf("Failed to subscribe to '%s' (%v)\n%v", string(t), err, err2)
@@ -377,7 +379,10 @@ func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnC
 			}
 
 			this.sess.RemoveTopic(string(tb))
-			this.sessMgr.Save(this.sess.ID(), this.profile)
+
+			if this.sessMgr != nil {
+				this.sessMgr.Save(this.sess.ID(), this.profile)
+			}
 		}
 
 		if onComplete != nil {

@@ -438,8 +438,8 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 				return err
 			}
 
-			if err := this.sessMgr.Save(cid, svc.profile); err != nil {
-				return err
+			if this.sessMgr != nil {
+				this.sessMgr.Save(cid, svc.profile)
 			}
 		}
 	}
@@ -456,8 +456,8 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 			return err
 		}
 
-		if err := this.sessMgr.Save(cid, svc.profile); err != nil {
-			return err
+		if this.sessMgr != nil {
+			this.sessMgr.Save(cid, svc.profile)
 		}
 	}
 
