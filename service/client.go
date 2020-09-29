@@ -188,7 +188,12 @@ func (this *Client) Disconnect() {
 func (this *Client) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
 	//id := string(req.ClientId())
 	svc.sess = &sessions.Session{}
-	return svc.sess.Init(req)
+	err := svc.sess.Init(req)
+	if err == nil && svc.sessMgr != nil {
+		svc.sessMgr.Save(svc.sess.ID(), svc.profile)
+	}
+
+	return err
 }
 
 func (this *Client) checkConfiguration() {
